@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Slime ✨</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #140611; }
+  body {
+    font-family: 'Fredoka', system-ui, sans-serif;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app { position: fixed; inset: 0; touch-action: none; }
+  canvas { display: block; }
+
+  /* ---- UI overlay ---- */
+  .hint {
+    position: fixed; top: env(safe-area-inset-top, 18px); left: 0; right: 0;
+    text-align: center; color: rgba(255,255,255,0.6);
+    font-size: 13px; font-weight: 400; letter-spacing: 0.06em;
+    pointer-events: none; transition: opacity 0.6s ease;
+    text-transform: lowercase;
+  }
+  .hint.gone { opacity: 0; }
+
+  .dock {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
+    display: flex; gap: 8px; padding: 7px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 999px;
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+  }
+  .swatch {
+    width: 46px; height: 46px; border-radius: 999px; border: none;
+    cursor: pointer; position: relative; outline: none;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.3);
+    transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s ease;
+  }
+  .swatch:active { transform: scale(0.9); }
+  .swatch[aria-pressed="true"] {
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.9), 0 0 18px rgba(255,255,255,0.25), 0 2px 8px rgba(0,0,0,0.3);
+    transform: scale(1.08);
+  }
+  .swatch .label {
+    position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%);
+    font-size: 10px; color: rgba(255,255,255,0.55); letter-spacing: 0.08em;
+    opacity: 0; transition: opacity 0.2s ease; white-space: nowrap;
+  }
+  .swatch[aria-pressed="true"] .label { opacity: 1; }
+
+  .sw-pink { background: radial-gradient(circle at 32% 28%, #ffd9ec, #ff7bbf 60%, #e84aa0); }
+  .sw-holo { background: conic-gradient(from 210deg, #b6f0ff, #e2b8ff, #ffd0e6, #d6ffe6, #b6f0ff); }
+  .sw-gold { background: radial-gradient(circle at 32% 28%, #fff6dc, #ffe08a 55%, #e6b23c); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .swatch { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="hint" id="hint">zieh am slime · lass los</div>
+<div class="dock" role="group" aria-label="Farbe wählen">
+  <button class="swatch sw-pink" data-preset="pink"  aria-pressed="true"><span class="label">rosa</span></button>
+  <button class="swatch sw-holo" data-preset="holo"  aria-pressed="false"><span class="label">holo</span></button>
+  <button class="swatch sw-gold" data-preset="gold"  aria-pressed="false"><span class="label">gold</span></button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ------------------------------------------------------------------
+// KONFIG  (bei Ruckeln auf dem iPhone: RESOLUTION auf 40 senken)
+// ------------------------------------------------------------------
+const RESOLUTION = 48;      // Detailgrad der Slime-Oberfläche
+const NUM_BLOBS  = 6;       // Anzahl verschmelzender Kugeln
+const NUM_SPARKLES = 260;   // Glitzerpartikel
+const VIEW_SIZE  = 4.4;     // sichtbare Höhe in Weltkoordinaten
+const FIELD_SCALE = 1.55;   // Größe des Slime-Felds
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---- Farb-Presets ----
+const PRESETS = {
+  pink: {
+    color: 0xff77bf, transmission: 0.9, iridescence: 0.35, iridescenceIOR: 1.3,
+    thickness: 1.3, roughness: 0.11, clearcoat: 1.0, attenuation: 0x9c2f6b,
+    sparkleHue: 0.90, sparkleSat: 0.25, rainbow: 0.0,
+    bgInner: '#5a1e46', bgOuter: '#160510', rim: 0xff4fa0,
+  },
+  holo: {
+    color: 0xf3f6ff, transmission: 0.86, iridescence: 1.0, iridescenceIOR: 1.7,
+    thickness: 1.6, roughness: 0.07, clearcoat: 1.0, attenuation: 0x88aaff,
+    sparkleHue: 0.0, sparkleSat: 0.0, rainbow: 1.0,
+    bgInner: '#2a2358', bgOuter: '#0a0819', rim: 0x8fb0ff,
+  },
+  gold: {
+    color: 0xfff0cf, transmission: 0.95, iridescence: 0.12, iridescenceIOR: 1.3,
+    thickness: 1.0, roughness: 0.06, clearcoat: 1.0, attenuation: 0xb6821f,
+    sparkleHue: 0.12, sparkleSat: 0.55, rainbow: 0.0,
+    bgInner: '#4a3714', bgOuter: '#140d03', rim: 0xffcf6a,
+  },
+};
+let preset = PRESETS.pink;
+
+// ------------------------------------------------------------------
+// Renderer / Szene / Kamera
+// ------------------------------------------------------------------
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+
+// Environment für realistische Reflexe/Brechung (kein externes HDR nötig)
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+let aspect = window.innerWidth / window.innerHeight;
+const camera = new THREE.OrthographicCamera(
+  -VIEW_SIZE * aspect / 2, VIEW_SIZE * aspect / 2,
+   VIEW_SIZE / 2, -VIEW_SIZE / 2, 0.1, 100
+);
+camera.position.set(0, 0, 10);
+camera.lookAt(0, 0, 0);
+
+// ---- Hintergrund-Verlauf als Textur (bricht schön durch das Gel) ----
+function makeBackground(inner, outer) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(256, 210, 40, 256, 256, 380);
+  g.addColorStop(0, inner);
+  g.addColorStop(1, outer);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 512, 512);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// ---- Licht ----
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.6);
+keyLight.position.set(2, 3, 4);
+scene.add(keyLight);
+const rimLight = new THREE.PointLight(0xff4fa0, 2.2, 30);
+rimLight.position.set(-3, -1, 3);
+scene.add(rimLight);
+
+// ------------------------------------------------------------------
+// Slime: MarchingCubes-Oberfläche
+// ------------------------------------------------------------------
+const material = new THREE.MeshPhysicalMaterial({
+  metalness: 0, roughness: 0.11, transmission: 0.9, thickness: 1.3,
+  ior: 1.42, clearcoat: 1.0, clearcoatRoughness: 0.12, iridescence: 0.35,
+  iridescenceIOR: 1.3, envMapIntensity: 1.3, transparent: true,
+  attenuationDistance: 1.4,
+});
+
+const marching = new MarchingCubes(RESOLUTION, material, true, true, 90000);
+marching.isolation = 60;
+marching.scale.setScalar(FIELD_SCALE);
+scene.add(marching);
+
+// ---- Blob-Physik (im 0..1-Feldraum, 0.5 = Mitte) ----
+const blobs = [];
+for (let i = 0; i < NUM_BLOBS; i++) {
+  const a = (i / NUM_BLOBS) * Math.PI * 2;
+  const r = i === 0 ? 0 : 0.11;
+  const home = new THREE.Vector2(0.5 + Math.cos(a) * r, 0.5 + Math.sin(a) * r);
+  blobs.push({
+    pos: home.clone(),
+    vel: new THREE.Vector2(0, 0),
+    home: home.clone(),
+    z: 0.5 + (Math.random() - 0.5) * 0.05,
+    phase: Math.random() * Math.PI * 2,
+    strength: i === 0 ? 0.62 : 0.34,
+  });
+}
+
+// ------------------------------------------------------------------
+// Glitzer (funkelnde Partikel)
+// ------------------------------------------------------------------
+const sparkleGeo = new THREE.BufferGeometry();
+const spPos = new Float32Array(NUM_SPARKLES * 3);
+const spPhase = new Float32Array(NUM_SPARKLES);
+const spSize = new Float32Array(NUM_SPARKLES);
+const spHue = new Float32Array(NUM_SPARKLES);
+for (let i = 0; i < NUM_SPARKLES; i++) {
+  // gleichmäßig in einer Kugel verteilt
+  const u = Math.random(), v = Math.random(), w = Math.random();
+  const theta = 2 * Math.PI * u, phi = Math.acos(2 * v - 1);
+  const rad = 1.35 * Math.cbrt(w);
+  spPos[i*3]   = rad * Math.sin(phi) * Math.cos(theta);
+  spPos[i*3+1] = rad * Math.sin(phi) * Math.sin(theta);
+  spPos[i*3+2] = rad * Math.cos(phi);
+  spPhase[i] = Math.random() * Math.PI * 2;
+  spSize[i]  = 1.0 + Math.random() * 2.4;
+  spHue[i]   = Math.random();
+}
+sparkleGeo.setAttribute('position', new THREE.BufferAttribute(spPos, 3));
+sparkleGeo.setAttribute('aPhase', new THREE.BufferAttribute(spPhase, 1));
+sparkleGeo.setAttribute('aSize', new THREE.BufferAttribute(spSize, 1));
+sparkleGeo.setAttribute('aHue', new THREE.BufferAttribute(spHue, 1));
+
+const sparkleMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  uniforms: {
+    uTime: { value: 0 },
+    uPixelRatio: { value: renderer.getPixelRatio() },
+    uBase: { value: new THREE.Color().setHSL(0.9, 0.25, 0.9) },
+    uRainbow: { value: 0.0 },
+  },
+  vertexShader: `
+    attribute float aPhase; attribute float aSize; attribute float aHue;
+    uniform float uTime; uniform float uPixelRatio;
+    varying float vTwinkle; varying float vHue;
+    void main() {
+      vHue = aHue;
+      float t = sin(uTime * 3.0 + aPhase);
+      vTwinkle = smoothstep(0.3, 1.0, t);        // scharfes Aufblitzen
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_Position = projectionMatrix * mv;
+      gl_PointSize = aSize * (0.6 + vTwinkle) * 3.2 * uPixelRatio;
+    }`,
+  fragmentShader: `
+    uniform vec3 uBase; uniform float uRainbow;
+    varying float vTwinkle; varying float vHue;
+    vec3 hue2rgb(float h){
+      vec3 p = abs(fract(h + vec3(0.0,0.6667,0.3333))*6.0 - 3.0);
+      return clamp(p - 1.0, 0.0, 1.0);
+    }
+    void main() {
+      vec2 uv = gl_PointCoord - 0.5;
+      float d = length(uv);
+      if (d > 0.5) discard;
+      float core = smoothstep(0.5, 0.0, d);
+      float glow = pow(core, 3.0);
+      vec3 col = mix(uBase, hue2rgb(vHue), uRainbow);
+      col += glow * 0.6;                          // heißer weißer Kern
+      float a = (glow * 0.7 + core * 0.3) * vTwinkle;
+      gl_FragColor = vec4(col, a);
+    }`,
+});
+const sparkles = new THREE.Points(sparkleGeo, sparkleMat);
+scene.add(sparkles);
+
+// ------------------------------------------------------------------
+// Pointer-Interaktion (Maus + Touch über Pointer Events)
+// ------------------------------------------------------------------
+const pointer = new THREE.Vector2(0.5, 0.5);
+let dragging = false;
+let hintGone = false;
+
+function setPointerFromEvent(e) {
+  const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
+  const ndcY = -((e.clientY / window.innerHeight) * 2 - 1);
+  const worldX = ndcX * (VIEW_SIZE * aspect / 2);
+  const worldY = ndcY * (VIEW_SIZE / 2);
+  // Welt -> 0..1-Feldraum
+  pointer.set(
+    THREE.MathUtils.clamp(worldX / (2 * FIELD_SCALE) + 0.5, 0.06, 0.94),
+    THREE.MathUtils.clamp(worldY / (2 * FIELD_SCALE) + 0.5, 0.06, 0.94)
+  );
+}
+
+app.addEventListener('pointerdown', (e) => {
+  dragging = true;
+  setPointerFromEvent(e);
+  app.setPointerCapture(e.pointerId);
+  // kleiner Quetsch-Impuls beim Antippen
+  for (const b of blobs) {
+    const dir = b.pos.clone().sub(pointer);
+    const dist = Math.max(dir.length(), 0.05);
+    b.vel.addScaledVector(dir.normalize(), 0.012 / dist);
+  }
+  if (!hintGone) { document.getElementById('hint').classList.add('gone'); hintGone = true; }
+});
+app.addEventListener('pointermove', (e) => { if (dragging) setPointerFromEvent(e); });
+function endDrag() { dragging = false; }
+app.addEventListener('pointerup', endDrag);
+app.addEventListener('pointercancel', endDrag);
+
+// ------------------------------------------------------------------
+// Preset anwenden
+// ------------------------------------------------------------------
+function applyPreset(p) {
+  preset = p;
+  material.color.setHex(p.color);
+  material.transmission = p.transmission;
+  material.iridescence = p.iridescence;
+  material.iridescenceIOR = p.iridescenceIOR;
+  material.thickness = p.thickness;
+  material.roughness = p.roughness;
+  material.clearcoat = p.clearcoat;
+  material.attenuationColor.setHex(p.attenuation);
+  scene.background = makeBackground(p.bgInner, p.bgOuter);
+  rimLight.color.setHex(p.rim);
+  sparkleMat.uniforms.uBase.value.setHSL(p.sparkleHue, p.sparkleSat, 0.9);
+  sparkleMat.uniforms.uRainbow.value = p.rainbow;
+}
+applyPreset(preset);
+
+document.querySelectorAll('.swatch').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.swatch').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    btn.setAttribute('aria-pressed', 'true');
+    applyPreset(PRESETS[btn.dataset.preset]);
+  });
+});
+
+// ------------------------------------------------------------------
+// Animationsloop
+// ------------------------------------------------------------------
+const clock = new THREE.Clock();
+const ambient = reduceMotion ? 0.0 : 1.0;
+
+function updatePhysics(dt, t) {
+  const centerX = 0, centerY = 0, centerZ = 0;
+  let cx = 0, cy = 0;
+  for (const b of blobs) {
+    // Ambient-Wabbeln der Ruheposition
+    const hx = b.home.x + Math.sin(t * 0.8 + b.phase) * 0.02 * ambient;
+    const hy = b.home.y + Math.cos(t * 0.9 + b.phase * 1.3) * 0.02 * ambient;
+    // Feder zur (wabbelnden) Ruheposition
+    b.vel.x += (hx - b.pos.x) * 6.5 * dt;
+    b.vel.y += (hy - b.pos.y) * 6.5 * dt;
+    // Anziehung zum Finger beim Ziehen
+    if (dragging) {
+      const dx = pointer.x - b.pos.x, dy = pointer.y - b.pos.y;
+      b.vel.x += dx * 9.0 * dt;
+      b.vel.y += dy * 9.0 * dt;
+    }
+    // Kohäsion zum Zentrum (hält den Slime zusammen)
+    b.vel.x += (0.5 - b.pos.x) * 1.2 * dt;
+    b.vel.y += (0.5 - b.pos.y) * 1.2 * dt;
+    // Dämpfung (leicht unterdämpft -> wabbelt nach)
+    b.vel.multiplyScalar(0.90);
+    b.pos.addScaledVector(b.vel, dt * 60);
+    b.pos.x = THREE.MathUtils.clamp(b.pos.x, 0.12, 0.88);
+    b.pos.y = THREE.MathUtils.clamp(b.pos.y, 0.12, 0.88);
+    cx += b.pos.x; cy += b.pos.y;
+  }
+  // Glitzer folgt dem Slime-Schwerpunkt
+  cx /= blobs.length; cy /= blobs.length;
+  const wx = (cx - 0.5) * 2 * FIELD_SCALE;
+  const wy = (cy - 0.5) * 2 * FIELD_SCALE;
+  sparkles.position.x += (wx - sparkles.position.x) * 0.1;
+  sparkles.position.y += (wy - sparkles.position.y) * 0.1;
+}
+
+function render() {
+  const dt = Math.min(clock.getDelta(), 0.033);
+  const t = clock.elapsedTime;
+
+  updatePhysics(dt, t);
+
+  // MarchingCubes neu aufbauen
+  marching.reset();
+  const subtract = 10;
+  for (const b of blobs) {
+    marching.addBall(b.pos.x, b.pos.y, b.z, b.strength, subtract);
+  }
+  marching.update();
+
+  if (!reduceMotion) sparkles.rotation.y = t * 0.12;
+  sparkleMat.uniforms.uTime.value = t;
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(render);
+}
+render();
+
+// ------------------------------------------------------------------
+// Resize
+// ------------------------------------------------------------------
+window.addEventListener('resize', () => {
+  aspect = window.innerWidth / window.innerHeight;
+  camera.left = -VIEW_SIZE * aspect / 2;
+  camera.right = VIEW_SIZE * aspect / 2;
+  camera.top = VIEW_SIZE / 2;
+  camera.bottom = -VIEW_SIZE / 2;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  sparkleMat.uniforms.uPixelRatio.value = renderer.getPixelRatio();
+});
+</script>
+</body>
+</html>

@@ -10,12 +10,14 @@
 
 ## 1. Was ist das?
 
-Eine eigenständige, spielerische **3D-Slime-App**: ein glänzend-durchsichtiger,
-verschmelzender Gel-Klumpen mit Glitzer, den man per Maus/Touch ziehen und
-drücken kann. Reines Privatprojekt (kein Finanzleser-Kontext), Ästhetik:
+Eine eigenständige **3D-Slime-Meditationsapp**: ein großer, glänzend-durchsichtiger
+Gel-Klumpen mit Glitzer **im Inneren**, den man per Maus/Touch drücken und kneten
+kann – langsam, zäh, beruhigend. Kein hektisches Herumfliegen: der Slime bleibt
+immer ein zusammenhängendes Stück. Reines Privatprojekt, Ästhetik:
 soft/girly/pastell. Läuft als **eine `index.html`** auf GitHub Pages.
 
-**Status:** Erste vollständige Version fertig und funktionsfähig. Noch nicht deployed.
+**Status:** Meditations-Überarbeitung fertig (ruhige Knet-Physik, Druck-Delle,
+Atem-Modus, optionaler Klang, 4 Presets, weiche Farbübergänge). Alles liegt auf `main`.
 
 ---
 
@@ -51,33 +53,43 @@ und Nicole sie über die Weboberfläche hochladen kann.
 ## 4. Aufbau der index.html (Reihenfolge im `<script type="module">`)
 
 1. **KONFIG-Block** – Konstanten ganz oben (siehe §5)
-2. **Presets** – `PRESETS` Objekt mit `pink` / `holo` / `gold`
+2. **Presets** – `PRESETS` Objekt mit `pink` / `lila` / `holo` / `gold`
 3. **Renderer / Szene / Kamera** – ACES-Tonemapping, PixelRatio auf max. 2 gedeckelt
 4. **Environment** – RoomEnvironment via PMREM → `scene.environment`
-5. **`makeBackground(inner, outer)`** – radialer Verlauf als CanvasTexture, wird
-   pro Preset neu erzeugt und als `scene.background` gesetzt (das Gel bricht ihn)
+5. **Hintergrund** – EINE persistente CanvasTexture (`drawBackground()`), deren
+   Farben beim Preset-Wechsel im Loop weich überblendet werden
 6. **Licht** – ein `DirectionalLight` (Key) + ein farbiges `PointLight` (Rim)
-7. **Slime** – `MeshPhysicalMaterial` + `MarchingCubes` (Objekt `marching`)
-8. **Blob-Physik** – Array `blobs`, jeweils `{pos, vel, home, z, phase, strength}`
-   im **0..1-Feldraum** (0.5 = Mitte)
+7. **Slime** – `MeshPhysicalMaterial` + `MarchingCubes` (Objekt `marching`);
+   Material-Werte werden beim Preset-Wechsel Richtung `matTar`/`colorTar` gelerpt
+8. **Blob-Aufbau + Anker** – Array `blobs` (`{a0, offR, pos, vel, z, phase, strength}`)
+   im **0..1-Feldraum** (0.5 = Mitte) + `anchor`/`anchorVel` (die ganze Slime-Masse)
 9. **Glitzer** – BufferGeometry mit Attributen `aPhase/aSize/aHue` + eigener
-   Vertex/Fragment-Shader (`sparkleMat`), additives Blending
-10. **Pointer-Interaktion** – Pointer Events (Maus + Touch vereinheitlicht)
-11. **`applyPreset(p)`** – setzt Material, Background, Rim-Licht, Glitzerfarbe
-12. **Animationsloop** `render()` – Physik → `marching.reset()`/`addBall()`/`update()` → Render
-13. **Resize** – Ortho-Frustum + Renderer neu setzen
+   Vertex/Fragment-Shader (`sparkleMat`), additives Blending; Wolke liegt IM Slime
+10. **Pointer-Interaktion** – Pointer Events (nur `isPrimary`), liefert `pointer`
+    und `pressureRaw` (echte Force auf iPhone, sonst 0.5)
+11. **Atem-Modus** – `updateBreath(t)`: 4s ein · 2s halten · 6s aus, Text in `#breath`
+12. **Klang (optional)** – `ensureAudio()`: synthetisiertes Pad + Knet-Rauschen
+    (Web Audio, keine Dateien), Master-Gain wird weich ein-/ausgeblendet
+13. **`applyPreset(p)`** – setzt nur ZIELWERTE; das Überblenden passiert im Loop
+14. **Physik** `updatePhysics()` – Anker-Modell, Druckaufbau, Dämpfung, Tempolimit
+15. **Animationsloop** `render()` – Atem → Physik → MarchingCubes (+ Druck-Delle)
+    → Preset-Lerp → Audio-Kopplung → Render
+16. **Resize** – Ortho-Frustum, `computeAnchorRange()`, Renderer neu setzen
 
 ---
 
 ## 5. Stellschrauben (KONFIG-Block, ganz oben)
 
-| Konstante        | Default | Wirkung                                                        |
-|------------------|---------|---------------------------------------------------------------|
-| `RESOLUTION`     | 48      | Detailgrad der Oberfläche. **Bei iPhone-Ruckeln → 40.**       |
-| `NUM_BLOBS`      | 6       | Anzahl verschmelzender Kugeln                                  |
-| `NUM_SPARKLES`   | 260     | Glitzerpartikel                                               |
-| `VIEW_SIZE`      | 4.4     | Sichtbare Höhe in Weltkoordinaten                            |
-| `FIELD_SCALE`    | 1.55    | Physische Größe des Slime-Felds                              |
+| Konstante         | Default | Wirkung                                                        |
+|-------------------|---------|---------------------------------------------------------------|
+| `RESOLUTION`      | 52      | Detailgrad der Oberfläche. **Bei iPhone-Ruckeln → 44.**       |
+| `NUM_BLOBS`       | 7       | 1 Kern + 6 Ring-Kugeln                                        |
+| `NUM_SPARKLES`    | 240     | Glitzerpartikel                                               |
+| `VIEW_SIZE`       | 4.2     | Sichtbare Höhe in Weltkoordinaten                             |
+| `FIELD_SCALE`     | 1.9     | Physische Größe des Slime-Felds                               |
+| `PRESS_RADIUS`    | 0.30    | Radius, in dem der Fingerdruck Material verdrängt (Feldraum)  |
+| `SPARKLE_RADIUS`  | 0.70    | Radius der Glitzerwolke (Welt) – klein genug, um IM Slime zu bleiben |
+| `SLIME_WORLD_R`   | 0.95    | Annahme für den Slime-Radius → begrenzt via `computeAnchorRange()`, wie weit der Slime wandern darf |
 
 `reduceMotion` respektiert `prefers-reduced-motion` (schaltet Ambient-Wabbeln
 und Glitzer-Rotation ab).
@@ -93,16 +105,33 @@ und Glitzer-Rotation ab).
   `NDC → Welt (× VIEW_SIZE/aspect) → Feld (÷ 2·FIELD_SCALE + 0.5)`. Wenn du die
   Kamera auf Perspective umstellst, ist dieses Mapping falsch und muss über einen
   Raycaster/`unproject` neu gemacht werden. **Kamera-Wechsel = Mapping-Rewrite.**
-- **Blob-Positionen werden geklemmt** (`clamp` auf ~0.12..0.88). Ohne Clamp
-  fliegen Blobs aus dem Feld und der Slime verschwindet stückweise.
+- **Anker-Modell statt Einzelanziehung.** Die Blobs hängen an EINEM trägen
+  Anker (`anchor`) mit festen, langsam rotierenden Offsets. Der Finger zieht
+  nur den Anker, nie einzelne Blobs → der Slime kann prinzipbedingt nicht
+  mehr auseinanderfliegen. Wer wieder Kräfte direkt auf einzelne Blobs gibt,
+  holt das „Explodieren" zurück.
+- **Druck = negative Metaball-Kugel.** `marching.addBall(..., -0.85*press, ...)`
+  am Finger drückt die Oberfläche sichtbar ein (MarchingCubes unterstützt
+  negative Stärken über `Math.sign`). Dazu werden Blobs im `PRESS_RADIUS`
+  sanft zur Seite gedrückt – das ist das Knet-Gefühl. `press` baut sich weich
+  auf/ab; auf iPhones fließt die echte Touch-Force (`e.pressure`) ein.
+- **Tempolimit + Dämpfung.** `vel` wird pro Frame ×0.90 gedämpft UND auf
+  max. 0.022 Länge geklemmt. Das Limit ist die zweite Explosions-Sicherung.
+- **Blob-Positionen werden geklemmt** (`clamp` auf ~0.14..0.86). Ohne Clamp
+  fliegen Blobs aus dem Feld und der Slime verschwindet stückweise. Der Anker
+  wird zusätzlich über `computeAnchorRange()` (aspect-abhängig!) begrenzt,
+  damit der Slime auf schmalen Handys nie den Bildschirm verlässt.
 - **`transmission` ist der teuerste Effekt.** Es rendert die Szene zusätzlich in
   einen Buffer. Das ist der Haupt-Performancekostenpunkt auf Mobilgeräten, nicht
   die Blob-Zahl. Reduktion → zuerst `RESOLUTION` und `transmission` senken.
-- **Physik ist bewusst unterdämpft** (`vel.multiplyScalar(0.90)`) → das
-  Nachwabbeln beim Loslassen. Höherer Faktor = träger/gummiger, niedriger =
-  schneller ruhig.
-- **`scene.background` wird pro Preset neu erzeugt.** Nicht per CSS am `<body>`,
-  weil `transmission` einen echten Szenen-Hintergrund zum Brechen braucht.
+- **Preset-Wechsel setzt nur Ziele.** `applyPreset()` schreibt in `matTar`,
+  `colorTar`, `bg*Tar` usw.; der Loop lerpt jeden Frame dorthin. Direkt am
+  Material schreiben bricht das weiche Überblenden.
+- **`scene.background` ist EINE persistente CanvasTexture,** die bei Farbwechsel
+  neu gezeichnet wird (`drawBackground()`). Nicht per CSS am `<body>`, weil
+  `transmission` einen echten Szenen-Hintergrund zum Brechen braucht.
+- **Audio erst nach User-Geste.** `ensureAudio()` läuft im Klick-Handler des
+  Klang-Buttons (Autoplay-Policy). Alles synthetisiert, keine Dateien.
 
 ---
 
@@ -146,13 +175,14 @@ GitHub: `nicolehahn2890`. Ablauf über die **Weboberfläche** (kein git-CLI):
 
 ## 10. Backlog / mögliche nächste Schritte (nicht beauftragt, nur Ideen)
 
-- „Nur zuschauen"-Modus (ohne Interaktion, für Ambient/Deko)
+- ~~Sound (Web Audio API) beim Quetschen~~ ✅ eingebaut (Pad + Knet-Rauschen, Toggle im Dock)
+- ~~„Nur zuschauen"/Ambient~~ ✅ als Atem-Modus eingebaut (4·2·6-Rhythmus)
 - Zwei-Finger-Geste: Slime auseinanderziehen / teilen
-- Sound (Web Audio API) beim Quetschen – Nicole nutzt das in ihrer Calma-App
 - Fetterer/gröberer Glitzer als Preset-Option
-- Grundfarbe frei wählbar statt drei feste Presets
-- Leichte Sub-Surface-Tönung für „echteren" Gel-Look über `attenuationColor`/`thickness`
+- Grundfarbe frei wählbar statt vier feste Presets
+- Vibration (Haptics API) beim Kneten auf Android
 - Screenshot-/Teilen-Button
+- Atem-Rhythmus wählbar (Box-Breathing 4·4·4·4, 4-7-8 …)
 
 ---
 

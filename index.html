@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#140611">
 <title>Slime ✨</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,18 +21,28 @@
 
   /* ---- UI overlay ---- */
   .hint {
-    position: fixed; top: env(safe-area-inset-top, 18px); left: 0; right: 0;
-    text-align: center; color: rgba(255,255,255,0.6);
+    position: fixed; top: calc(env(safe-area-inset-top, 0px) + 18px); left: 0; right: 0;
+    text-align: center; color: rgba(255,255,255,0.55);
     font-size: 13px; font-weight: 400; letter-spacing: 0.06em;
-    pointer-events: none; transition: opacity 0.6s ease;
+    pointer-events: none; transition: opacity 0.8s ease;
     text-transform: lowercase;
   }
   .hint.gone { opacity: 0; }
 
+  /* Atem-Text (nur im Atem-Modus sichtbar) */
+  #breath {
+    position: fixed; top: 16%; left: 0; right: 0;
+    text-align: center; color: rgba(255,255,255,0.5);
+    font-size: 16px; font-weight: 400; letter-spacing: 0.32em;
+    text-transform: lowercase; pointer-events: none;
+    opacity: 0; transition: opacity 1.4s ease;
+  }
+  #breath.on { opacity: 1; }
+
   .dock {
     position: fixed; left: 50%; transform: translateX(-50%);
     bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
-    display: flex; gap: 8px; padding: 7px;
+    display: flex; gap: 7px; padding: 7px 9px; align-items: center;
     background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.14);
     border-radius: 999px;
@@ -39,40 +50,74 @@
     -webkit-backdrop-filter: blur(16px) saturate(1.4);
     box-shadow: 0 8px 40px rgba(0,0,0,0.35);
   }
-  .swatch {
-    width: 46px; height: 46px; border-radius: 999px; border: none;
+  .swatch, .tool {
+    width: 42px; height: 42px; border-radius: 999px; border: none;
     cursor: pointer; position: relative; outline: none;
     box-shadow: inset 0 0 0 2px rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.3);
     transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s ease;
   }
-  .swatch:active { transform: scale(0.9); }
-  .swatch[aria-pressed="true"] {
+  .swatch:active, .tool:active { transform: scale(0.9); }
+  .swatch[aria-pressed="true"], .tool[aria-pressed="true"] {
     box-shadow: inset 0 0 0 2px rgba(255,255,255,0.9), 0 0 18px rgba(255,255,255,0.25), 0 2px 8px rgba(0,0,0,0.3);
     transform: scale(1.08);
   }
-  .swatch .label {
+  .swatch .label, .tool .label {
     position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%);
     font-size: 10px; color: rgba(255,255,255,0.55); letter-spacing: 0.08em;
     opacity: 0; transition: opacity 0.2s ease; white-space: nowrap;
   }
-  .swatch[aria-pressed="true"] .label { opacity: 1; }
+  .swatch[aria-pressed="true"] .label, .tool[aria-pressed="true"] .label { opacity: 1; }
 
   .sw-pink { background: radial-gradient(circle at 32% 28%, #ffd9ec, #ff7bbf 60%, #e84aa0); }
   .sw-holo { background: conic-gradient(from 210deg, #b6f0ff, #e2b8ff, #ffd0e6, #d6ffe6, #b6f0ff); }
   .sw-gold { background: radial-gradient(circle at 32% 28%, #fff6dc, #ffe08a 55%, #e6b23c); }
+  .sw-lila { background: radial-gradient(circle at 32% 28%, #ecdcff, #b98aff 60%, #8f5fe0); }
+
+  .tool {
+    background: rgba(255,255,255,0.10);
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.78);
+  }
+  .tool svg { width: 20px; height: 20px; display: block; }
+  .divider {
+    width: 1px; align-self: stretch; margin: 5px 2px;
+    background: rgba(255,255,255,0.16); border-radius: 1px;
+  }
 
   @media (prefers-reduced-motion: reduce) {
-    .swatch { transition: none; }
+    .swatch, .tool { transition: none; }
+  }
+  @media (max-width: 380px) {
+    .swatch, .tool { width: 38px; height: 38px; }
+    .dock { gap: 5px; }
   }
 </style>
 </head>
 <body>
 <div id="app"></div>
-<div class="hint" id="hint">zieh am slime · lass los</div>
-<div class="dock" role="group" aria-label="Farbe wählen">
-  <button class="swatch sw-pink" data-preset="pink"  aria-pressed="true"><span class="label">rosa</span></button>
-  <button class="swatch sw-holo" data-preset="holo"  aria-pressed="false"><span class="label">holo</span></button>
-  <button class="swatch sw-gold" data-preset="gold"  aria-pressed="false"><span class="label">gold</span></button>
+<div class="hint" id="hint">drücken · kneten · loslassen</div>
+<div id="breath"></div>
+<div class="dock" role="group" aria-label="Slime einstellen">
+  <button class="swatch sw-pink" data-preset="pink" aria-pressed="true"><span class="label">rosa</span></button>
+  <button class="swatch sw-lila" data-preset="lila" aria-pressed="false"><span class="label">lavendel</span></button>
+  <button class="swatch sw-holo" data-preset="holo" aria-pressed="false"><span class="label">holo</span></button>
+  <button class="swatch sw-gold" data-preset="gold" aria-pressed="false"><span class="label">gold</span></button>
+  <span class="divider" aria-hidden="true"></span>
+  <button class="tool" id="breathBtn" aria-pressed="false" aria-label="Atem-Modus">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <circle cx="12" cy="12" r="4.2"/>
+      <circle cx="12" cy="12" r="8.4" stroke-dasharray="2.4 3.4" opacity="0.7"/>
+    </svg>
+    <span class="label">atmen</span>
+  </button>
+  <button class="tool" id="soundBtn" aria-pressed="false" aria-label="Klang an/aus">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M4 9.5v5h3.2L12 18.6V5.4L7.2 9.5H4z"/>
+      <path d="M15.5 9.2a4 4 0 0 1 0 5.6" opacity="0.8"/>
+      <path d="M18 6.8a7.4 7.4 0 0 1 0 10.4" opacity="0.5"/>
+    </svg>
+    <span class="label">klang</span>
+  </button>
 </div>
 
 <script type="importmap">
@@ -90,13 +135,15 @@ import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 // ------------------------------------------------------------------
-// KONFIG  (bei Ruckeln auf dem iPhone: RESOLUTION auf 40 senken)
+// KONFIG  (bei Ruckeln auf dem iPhone: RESOLUTION auf 44 senken)
 // ------------------------------------------------------------------
-const RESOLUTION = 48;      // Detailgrad der Slime-Oberfläche
-const NUM_BLOBS  = 6;       // Anzahl verschmelzender Kugeln
-const NUM_SPARKLES = 260;   // Glitzerpartikel
-const VIEW_SIZE  = 4.4;     // sichtbare Höhe in Weltkoordinaten
-const FIELD_SCALE = 1.55;   // Größe des Slime-Felds
+const RESOLUTION   = 52;    // Detailgrad der Slime-Oberfläche
+const NUM_BLOBS    = 7;     // 1 Kern + 6 Ring-Kugeln
+const NUM_SPARKLES = 240;   // Glitzerpartikel
+const VIEW_SIZE    = 4.2;   // sichtbare Höhe in Weltkoordinaten
+const FIELD_SCALE  = 1.9;   // Größe des Slime-Felds
+const PRESS_RADIUS = 0.30;  // Radius der Druck-Wirkung im Feldraum
+const SPARKLE_RADIUS = 0.70;// Glitzerwolke (Weltkoordinaten) – bleibt IM Slime
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---- Farb-Presets ----
@@ -106,6 +153,12 @@ const PRESETS = {
     thickness: 1.3, roughness: 0.11, clearcoat: 1.0, attenuation: 0x9c2f6b,
     sparkleHue: 0.90, sparkleSat: 0.25, rainbow: 0.0,
     bgInner: '#5a1e46', bgOuter: '#160510', rim: 0xff4fa0,
+  },
+  lila: {
+    color: 0xc9a6ff, transmission: 0.9, iridescence: 0.5, iridescenceIOR: 1.35,
+    thickness: 1.4, roughness: 0.09, clearcoat: 1.0, attenuation: 0x5e35a8,
+    sparkleHue: 0.75, sparkleSat: 0.3, rainbow: 0.0,
+    bgInner: '#38285e', bgOuter: '#0c0718', rim: 0xb18cff,
   },
   holo: {
     color: 0xf3f6ff, transmission: 0.86, iridescence: 1.0, iridescenceIOR: 1.7,
@@ -120,7 +173,6 @@ const PRESETS = {
     bgInner: '#4a3714', bgOuter: '#140d03', rim: 0xffcf6a,
   },
 };
-let preset = PRESETS.pink;
 
 // ------------------------------------------------------------------
 // Renderer / Szene / Kamera
@@ -148,18 +200,24 @@ camera.position.set(0, 0, 10);
 camera.lookAt(0, 0, 0);
 
 // ---- Hintergrund-Verlauf als Textur (bricht schön durch das Gel) ----
-function makeBackground(inner, outer) {
-  const c = document.createElement('canvas');
-  c.width = c.height = 512;
-  const ctx = c.getContext('2d');
-  const g = ctx.createRadialGradient(256, 210, 40, 256, 256, 380);
-  g.addColorStop(0, inner);
-  g.addColorStop(1, outer);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 512, 512);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
+// Eine persistente Canvas-Textur, deren Farben beim Preset-Wechsel weich
+// überblendet werden (kein hartes Umschalten mehr).
+const bgCanvas = document.createElement('canvas');
+bgCanvas.width = bgCanvas.height = 512;
+const bgCtx = bgCanvas.getContext('2d');
+const bgTex = new THREE.CanvasTexture(bgCanvas);
+bgTex.colorSpace = THREE.SRGBColorSpace;
+scene.background = bgTex;
+
+const bgInnerCur = new THREE.Color(), bgOuterCur = new THREE.Color();
+const bgInnerTar = new THREE.Color(), bgOuterTar = new THREE.Color();
+function drawBackground() {
+  const g = bgCtx.createRadialGradient(256, 210, 40, 256, 256, 380);
+  g.addColorStop(0, '#' + bgInnerCur.getHexString());
+  g.addColorStop(1, '#' + bgOuterCur.getHexString());
+  bgCtx.fillStyle = g;
+  bgCtx.fillRect(0, 0, 512, 512);
+  bgTex.needsUpdate = true;
 }
 
 // ---- Licht ----
@@ -169,6 +227,7 @@ scene.add(keyLight);
 const rimLight = new THREE.PointLight(0xff4fa0, 2.2, 30);
 rimLight.position.set(-3, -1, 3);
 scene.add(rimLight);
+const rimTar = new THREE.Color(0xff4fa0);
 
 // ------------------------------------------------------------------
 // Slime: MarchingCubes-Oberfläche
@@ -179,30 +238,49 @@ const material = new THREE.MeshPhysicalMaterial({
   iridescenceIOR: 1.3, envMapIntensity: 1.3, transparent: true,
   attenuationDistance: 1.4,
 });
+// Ziel-Werte für weiches Überblenden beim Preset-Wechsel
+const matTar = { transmission: 0.9, iridescence: 0.35, iridescenceIOR: 1.3, thickness: 1.3, roughness: 0.11 };
+const colorTar = new THREE.Color(0xff77bf);
+const attenTar = new THREE.Color(0x9c2f6b);
 
 const marching = new MarchingCubes(RESOLUTION, material, true, true, 90000);
 marching.isolation = 60;
 marching.scale.setScalar(FIELD_SCALE);
 scene.add(marching);
 
-// ---- Blob-Physik (im 0..1-Feldraum, 0.5 = Mitte) ----
+// ---- Blob-Aufbau (im 0..1-Feldraum, 0.5 = Mitte) ----
+// Neues Modell: EIN gemeinsamer Anker (die ganze Slime-Masse) + feste
+// Offsets pro Blob. Dadurch bleibt der Slime immer ein Stück – er kann
+// nicht mehr auseinanderfliegen, egal wie man zieht.
 const blobs = [];
 for (let i = 0; i < NUM_BLOBS; i++) {
-  const a = (i / NUM_BLOBS) * Math.PI * 2;
-  const r = i === 0 ? 0 : 0.11;
-  const home = new THREE.Vector2(0.5 + Math.cos(a) * r, 0.5 + Math.sin(a) * r);
+  const a0 = i === 0 ? 0 : ((i - 1) / (NUM_BLOBS - 1)) * Math.PI * 2;
+  const offR = i === 0 ? 0 : 0.14;
   blobs.push({
-    pos: home.clone(),
+    a0, offR,
+    pos: new THREE.Vector2(0.5 + Math.cos(a0) * offR, 0.5 + Math.sin(a0) * offR),
     vel: new THREE.Vector2(0, 0),
-    home: home.clone(),
-    z: 0.5 + (Math.random() - 0.5) * 0.05,
+    z: 0.5 + (Math.random() - 0.5) * 0.04,
     phase: Math.random() * Math.PI * 2,
-    strength: i === 0 ? 0.62 : 0.34,
+    strength: i === 0 ? 1.15 : 0.6,
   });
 }
+// Anker = träger Schwerpunkt des Slimes (folgt dem Finger wie Honig)
+const anchor = new THREE.Vector2(0.5, 0.5);
+const anchorVel = new THREE.Vector2(0, 0);
+// Wie weit der Anker wandern darf, hängt vom Seitenverhältnis ab –
+// der Slime soll auf schmalen Handy-Screens nie aus dem Bild rutschen.
+const SLIME_WORLD_R = 0.95; // ungefährer Welt-Radius des Slimes
+let anchorRangeX = 0.1, anchorRangeY = 0.15;
+function computeAnchorRange() {
+  const halfW = VIEW_SIZE * aspect / 2, halfH = VIEW_SIZE / 2;
+  anchorRangeX = THREE.MathUtils.clamp((halfW - SLIME_WORLD_R) / (2 * FIELD_SCALE), 0.02, 0.15);
+  anchorRangeY = THREE.MathUtils.clamp((halfH - SLIME_WORLD_R) / (2 * FIELD_SCALE), 0.02, 0.15);
+}
+computeAnchorRange();
 
 // ------------------------------------------------------------------
-// Glitzer (funkelnde Partikel)
+// Glitzer (funkelnde Partikel IM Slime)
 // ------------------------------------------------------------------
 const sparkleGeo = new THREE.BufferGeometry();
 const spPos = new Float32Array(NUM_SPARKLES * 3);
@@ -210,15 +288,15 @@ const spPhase = new Float32Array(NUM_SPARKLES);
 const spSize = new Float32Array(NUM_SPARKLES);
 const spHue = new Float32Array(NUM_SPARKLES);
 for (let i = 0; i < NUM_SPARKLES; i++) {
-  // gleichmäßig in einer Kugel verteilt
+  // gleichmäßig in einer (leicht flachen) Kugel verteilt
   const u = Math.random(), v = Math.random(), w = Math.random();
   const theta = 2 * Math.PI * u, phi = Math.acos(2 * v - 1);
-  const rad = 1.35 * Math.cbrt(w);
+  const rad = SPARKLE_RADIUS * Math.cbrt(w);
   spPos[i*3]   = rad * Math.sin(phi) * Math.cos(theta);
   spPos[i*3+1] = rad * Math.sin(phi) * Math.sin(theta);
-  spPos[i*3+2] = rad * Math.cos(phi);
+  spPos[i*3+2] = rad * Math.cos(phi) * 0.75;
   spPhase[i] = Math.random() * Math.PI * 2;
-  spSize[i]  = 1.0 + Math.random() * 2.4;
+  spSize[i]  = 0.9 + Math.random() * 2.1;
   spHue[i]   = Math.random();
 }
 sparkleGeo.setAttribute('position', new THREE.BufferAttribute(spPos, 3));
@@ -240,11 +318,11 @@ const sparkleMat = new THREE.ShaderMaterial({
     varying float vTwinkle; varying float vHue;
     void main() {
       vHue = aHue;
-      float t = sin(uTime * 3.0 + aPhase);
-      vTwinkle = smoothstep(0.3, 1.0, t);        // scharfes Aufblitzen
+      float t = sin(uTime * 1.3 + aPhase);          // ruhiges, langsames Funkeln
+      vTwinkle = smoothstep(0.15, 1.0, t);
       vec4 mv = modelViewMatrix * vec4(position, 1.0);
       gl_Position = projectionMatrix * mv;
-      gl_PointSize = aSize * (0.6 + vTwinkle) * 3.2 * uPixelRatio;
+      gl_PointSize = aSize * (0.6 + vTwinkle) * 3.6 * uPixelRatio;
     }`,
   fragmentShader: `
     uniform vec3 uBase; uniform float uRainbow;
@@ -261,19 +339,28 @@ const sparkleMat = new THREE.ShaderMaterial({
       float glow = pow(core, 3.0);
       vec3 col = mix(uBase, hue2rgb(vHue), uRainbow);
       col += glow * 0.6;                          // heißer weißer Kern
-      float a = (glow * 0.7 + core * 0.3) * vTwinkle;
+      float a = (glow * 0.7 + core * 0.3) * (0.12 + vTwinkle * 0.88);
       gl_FragColor = vec4(col, a);
     }`,
 });
+const sparkleBaseTar = new THREE.Color().setHSL(0.9, 0.25, 0.9);
+let rainbowTar = 0.0;
 const sparkles = new THREE.Points(sparkleGeo, sparkleMat);
 scene.add(sparkles);
 
 // ------------------------------------------------------------------
 // Pointer-Interaktion (Maus + Touch über Pointer Events)
+// Kein Impuls, keine Explosion: der Finger DRÜCKT in den Slime
+// (echte Delle über eine negative Metaball-Kugel) und die Masse
+// folgt ihm träge als Ganzes.
 // ------------------------------------------------------------------
 const pointer = new THREE.Vector2(0.5, 0.5);
+const lastPtr = new THREE.Vector2(0.5, 0.5);
 let dragging = false;
 let hintGone = false;
+let press = 0;            // aktueller Druck 0..1 (baut sich weich auf/ab)
+let pressureRaw = 0.5;    // Roh-Druck vom Gerät (iPhone: echte Force)
+let ptrSpeed = 0;         // geglättete Fingergeschwindigkeit (für Klang)
 
 function setPointerFromEvent(e) {
   const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
@@ -282,47 +369,112 @@ function setPointerFromEvent(e) {
   const worldY = ndcY * (VIEW_SIZE / 2);
   // Welt -> 0..1-Feldraum
   pointer.set(
-    THREE.MathUtils.clamp(worldX / (2 * FIELD_SCALE) + 0.5, 0.06, 0.94),
-    THREE.MathUtils.clamp(worldY / (2 * FIELD_SCALE) + 0.5, 0.06, 0.94)
+    THREE.MathUtils.clamp(worldX / (2 * FIELD_SCALE) + 0.5, 0.08, 0.92),
+    THREE.MathUtils.clamp(worldY / (2 * FIELD_SCALE) + 0.5, 0.08, 0.92)
   );
+  pressureRaw = (e.pressure && e.pressure > 0) ? e.pressure : 0.5;
 }
 
 app.addEventListener('pointerdown', (e) => {
+  if (!e.isPrimary) return;
   dragging = true;
   setPointerFromEvent(e);
+  lastPtr.copy(pointer);
   app.setPointerCapture(e.pointerId);
-  // kleiner Quetsch-Impuls beim Antippen
-  for (const b of blobs) {
-    const dir = b.pos.clone().sub(pointer);
-    const dist = Math.max(dir.length(), 0.05);
-    b.vel.addScaledVector(dir.normalize(), 0.012 / dist);
-  }
   if (!hintGone) { document.getElementById('hint').classList.add('gone'); hintGone = true; }
 });
-app.addEventListener('pointermove', (e) => { if (dragging) setPointerFromEvent(e); });
-function endDrag() { dragging = false; }
+app.addEventListener('pointermove', (e) => { if (dragging && e.isPrimary) setPointerFromEvent(e); });
+function endDrag(e) { if (e.isPrimary) dragging = false; }
 app.addEventListener('pointerup', endDrag);
 app.addEventListener('pointercancel', endDrag);
+app.addEventListener('contextmenu', (e) => e.preventDefault());
 
 // ------------------------------------------------------------------
-// Preset anwenden
+// Atem-Modus (geführtes Atmen: 4s ein · 2s halten · 6s aus)
 // ------------------------------------------------------------------
-function applyPreset(p) {
-  preset = p;
-  material.color.setHex(p.color);
-  material.transmission = p.transmission;
-  material.iridescence = p.iridescence;
-  material.iridescenceIOR = p.iridescenceIOR;
-  material.thickness = p.thickness;
-  material.roughness = p.roughness;
-  material.clearcoat = p.clearcoat;
-  material.attenuationColor.setHex(p.attenuation);
-  scene.background = makeBackground(p.bgInner, p.bgOuter);
-  rimLight.color.setHex(p.rim);
-  sparkleMat.uniforms.uBase.value.setHSL(p.sparkleHue, p.sparkleSat, 0.9);
-  sparkleMat.uniforms.uRainbow.value = p.rainbow;
+let breathMode = false;
+let breathT0 = 0;
+let breathV = 0;          // 0 = ausgeatmet, 1 = eingeatmet
+let breathPhaseTxt = '';
+const breathEl = document.getElementById('breath');
+
+function updateBreath(t) {
+  if (!breathMode) { breathV = 0; return; }
+  const T = (t - breathT0) % 12;
+  let txt;
+  if (T < 4)      { breathV = 0.5 - 0.5 * Math.cos((T / 4) * Math.PI); txt = 'einatmen'; }
+  else if (T < 6) { breathV = 1; txt = 'halten'; }
+  else            { breathV = 0.5 + 0.5 * Math.cos(((T - 6) / 6) * Math.PI); txt = 'ausatmen'; }
+  if (txt !== breathPhaseTxt) { breathPhaseTxt = txt; breathEl.textContent = txt; }
 }
-applyPreset(preset);
+
+// ------------------------------------------------------------------
+// Klang (optional, standardmäßig aus): warmes leises Pad +
+// Knet-Rauschen, das auf Druck und Bewegung reagiert. Alles
+// synthetisiert – keine Audio-Dateien nötig.
+// ------------------------------------------------------------------
+let audio = null;
+let soundOn = false;
+
+function ensureAudio() {
+  if (audio) return;
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const master = ctx.createGain();
+  master.gain.value = 0;
+  master.connect(ctx.destination);
+
+  // warmes Pad: drei leise Oszillatoren durch einen Tiefpass
+  const padGain = ctx.createGain(); padGain.gain.value = 0.16;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 300; lp.Q.value = 0.4;
+  const og = ctx.createGain(); og.gain.value = 0.33;
+  for (const [type, freq] of [['sine', 98], ['sine', 147.2], ['triangle', 196.5]]) {
+    const o = ctx.createOscillator(); o.type = type; o.frequency.value = freq;
+    o.connect(og); o.start();
+  }
+  og.connect(lp); lp.connect(padGain); padGain.connect(master);
+
+  // Knet-Rauschen: geloopter Noise-Buffer durch einen Bandpass
+  const len = ctx.sampleRate * 2;
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.7;
+  const sg = ctx.createGain(); sg.gain.value = 0;
+  src.connect(bp); bp.connect(sg); sg.connect(master); src.start();
+
+  audio = { ctx, master, lp, bp, sg };
+}
+
+// ------------------------------------------------------------------
+// Preset anwenden (setzt nur ZIELE – überblendet wird im Loop)
+// ------------------------------------------------------------------
+function applyPreset(p, instant = false) {
+  colorTar.setHex(p.color);
+  attenTar.setHex(p.attenuation);
+  matTar.transmission = p.transmission;
+  matTar.iridescence = p.iridescence;
+  matTar.iridescenceIOR = p.iridescenceIOR;
+  matTar.thickness = p.thickness;
+  matTar.roughness = p.roughness;
+  material.clearcoat = p.clearcoat;
+  bgInnerTar.set(p.bgInner);
+  bgOuterTar.set(p.bgOuter);
+  rimTar.setHex(p.rim);
+  sparkleBaseTar.setHSL(p.sparkleHue, p.sparkleSat, 0.9);
+  rainbowTar = p.rainbow;
+  if (instant) {
+    material.color.copy(colorTar);
+    material.attenuationColor.copy(attenTar);
+    Object.assign(material, matTar);
+    bgInnerCur.copy(bgInnerTar); bgOuterCur.copy(bgOuterTar);
+    drawBackground();
+    rimLight.color.copy(rimTar);
+    sparkleMat.uniforms.uBase.value.copy(sparkleBaseTar);
+    sparkleMat.uniforms.uRainbow.value = rainbowTar;
+  }
+}
+applyPreset(PRESETS.pink, true);
 
 document.querySelectorAll('.swatch').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -332,62 +484,149 @@ document.querySelectorAll('.swatch').forEach(btn => {
   });
 });
 
+document.getElementById('breathBtn').addEventListener('click', (e) => {
+  breathMode = !breathMode;
+  e.currentTarget.setAttribute('aria-pressed', String(breathMode));
+  breathEl.classList.toggle('on', breathMode);
+  if (breathMode) { breathT0 = clock.elapsedTime; breathPhaseTxt = ''; }
+});
+
+document.getElementById('soundBtn').addEventListener('click', (e) => {
+  soundOn = !soundOn;
+  e.currentTarget.setAttribute('aria-pressed', String(soundOn));
+  if (soundOn) {
+    ensureAudio();
+    audio.ctx.resume();
+    audio.master.gain.setTargetAtTime(0.5, audio.ctx.currentTime, 0.4);
+  } else if (audio) {
+    audio.master.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.3);
+  }
+});
+
+// ------------------------------------------------------------------
+// Physik: langsam, zäh, zusammenhängend – wie echtes Slime-Kneten
+// ------------------------------------------------------------------
+const ambient = reduceMotion ? 0.0 : 1.0;
+
+function updatePhysics(dt, t) {
+  // Druck weich auf- und abbauen (fühlt sich nach Einsinken an)
+  const pTarget = dragging ? Math.min(1, Math.max(0.45, pressureRaw * 1.3)) : 0;
+  press += (pTarget - press) * Math.min(1, dt * 3.2);
+
+  // Fingergeschwindigkeit glätten (für den Knet-Klang)
+  if (dragging) {
+    ptrSpeed += (pointer.distanceTo(lastPtr) / Math.max(dt, 1e-3) - ptrSpeed) * 0.2;
+  } else {
+    ptrSpeed *= 0.9;
+  }
+  lastPtr.copy(pointer);
+
+  // Anker: die ganze Slime-Masse folgt dem Finger träge (wie Honig)
+  const ax = dragging ? THREE.MathUtils.clamp(pointer.x, 0.5 - anchorRangeX, 0.5 + anchorRangeX) : 0.5;
+  const ay = dragging ? THREE.MathUtils.clamp(pointer.y, 0.5 - anchorRangeY, 0.5 + anchorRangeY) : 0.5;
+  anchorVel.x += (ax - anchor.x) * (dragging ? 3.2 : 1.5) * dt;
+  anchorVel.y += (ay - anchor.y) * (dragging ? 3.2 : 1.5) * dt;
+  anchorVel.multiplyScalar(0.93);
+  anchor.addScaledVector(anchorVel, dt * 60);
+
+  // Atem/Ruhepuls skaliert die Form ganz leicht
+  const offMul = breathMode ? 0.92 + 0.14 * breathV : 1;
+
+  for (const b of blobs) {
+    // Ruheposition: Anker + langsam rotierender Offset + sanftes Wabbeln
+    const a = b.a0 + t * 0.06;
+    const hx = anchor.x + Math.cos(a) * b.offR * offMul + Math.sin(t * 0.5 + b.phase) * 0.012 * ambient;
+    const hy = anchor.y + Math.sin(a) * b.offR * offMul + Math.cos(t * 0.6 + b.phase * 1.3) * 0.012 * ambient;
+    // weiche Feder zur Ruheform (hält alles zusammen)
+    b.vel.x += (hx - b.pos.x) * 5.0 * dt;
+    b.vel.y += (hy - b.pos.y) * 5.0 * dt;
+    // Druck: Material weicht unter dem Finger sanft zur Seite
+    if (press > 0.02) {
+      const dx = b.pos.x - pointer.x, dy = b.pos.y - pointer.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < PRESS_RADIUS) {
+        const f = (1 - dist / PRESS_RADIUS) * press * 0.9 * dt;
+        const inv = 1 / Math.max(dist, 0.04);
+        b.vel.x += dx * inv * f;
+        b.vel.y += dy * inv * f;
+      }
+    }
+    // starke Dämpfung + Tempolimit: nichts kann mehr "explodieren"
+    b.vel.multiplyScalar(0.90);
+    const vLen = b.vel.length();
+    if (vLen > 0.022) b.vel.multiplyScalar(0.022 / vLen);
+    b.pos.addScaledVector(b.vel, dt * 60);
+    b.pos.x = THREE.MathUtils.clamp(b.pos.x, 0.14, 0.86);
+    b.pos.y = THREE.MathUtils.clamp(b.pos.y, 0.14, 0.86);
+  }
+
+  // Glitzer schwebt träge mit der Slime-Mitte mit
+  const wx = (anchor.x - 0.5) * 2 * FIELD_SCALE;
+  const wy = (anchor.y - 0.5) * 2 * FIELD_SCALE;
+  sparkles.position.x += (wx - sparkles.position.x) * 0.08;
+  sparkles.position.y += (wy - sparkles.position.y) * 0.08;
+}
+
 // ------------------------------------------------------------------
 // Animationsloop
 // ------------------------------------------------------------------
 const clock = new THREE.Clock();
-const ambient = reduceMotion ? 0.0 : 1.0;
-
-function updatePhysics(dt, t) {
-  const centerX = 0, centerY = 0, centerZ = 0;
-  let cx = 0, cy = 0;
-  for (const b of blobs) {
-    // Ambient-Wabbeln der Ruheposition
-    const hx = b.home.x + Math.sin(t * 0.8 + b.phase) * 0.02 * ambient;
-    const hy = b.home.y + Math.cos(t * 0.9 + b.phase * 1.3) * 0.02 * ambient;
-    // Feder zur (wabbelnden) Ruheposition
-    b.vel.x += (hx - b.pos.x) * 6.5 * dt;
-    b.vel.y += (hy - b.pos.y) * 6.5 * dt;
-    // Anziehung zum Finger beim Ziehen
-    if (dragging) {
-      const dx = pointer.x - b.pos.x, dy = pointer.y - b.pos.y;
-      b.vel.x += dx * 9.0 * dt;
-      b.vel.y += dy * 9.0 * dt;
-    }
-    // Kohäsion zum Zentrum (hält den Slime zusammen)
-    b.vel.x += (0.5 - b.pos.x) * 1.2 * dt;
-    b.vel.y += (0.5 - b.pos.y) * 1.2 * dt;
-    // Dämpfung (leicht unterdämpft -> wabbelt nach)
-    b.vel.multiplyScalar(0.90);
-    b.pos.addScaledVector(b.vel, dt * 60);
-    b.pos.x = THREE.MathUtils.clamp(b.pos.x, 0.12, 0.88);
-    b.pos.y = THREE.MathUtils.clamp(b.pos.y, 0.12, 0.88);
-    cx += b.pos.x; cy += b.pos.y;
-  }
-  // Glitzer folgt dem Slime-Schwerpunkt
-  cx /= blobs.length; cy /= blobs.length;
-  const wx = (cx - 0.5) * 2 * FIELD_SCALE;
-  const wy = (cy - 0.5) * 2 * FIELD_SCALE;
-  sparkles.position.x += (wx - sparkles.position.x) * 0.1;
-  sparkles.position.y += (wy - sparkles.position.y) * 0.1;
-}
 
 function render() {
   const dt = Math.min(clock.getDelta(), 0.033);
   const t = clock.elapsedTime;
 
+  updateBreath(t);
   updatePhysics(dt, t);
+
+  // sanfter Ruhepuls (der Slime "atmet" auch ohne Atem-Modus minimal)
+  const idle = reduceMotion ? 0 : Math.sin(t * (2 * Math.PI / 7)) * 0.03;
+  const sMul = breathMode ? 0.90 + 0.20 * breathV : 1 + idle;
 
   // MarchingCubes neu aufbauen
   marching.reset();
   const subtract = 10;
   for (const b of blobs) {
-    marching.addBall(b.pos.x, b.pos.y, b.z, b.strength, subtract);
+    marching.addBall(b.pos.x, b.pos.y, b.z, b.strength * sMul, subtract);
+  }
+  // Druck-Delle: negative Kugel am Finger drückt die Oberfläche ein
+  if (press > 0.02) {
+    marching.addBall(pointer.x, pointer.y, 0.62, -0.85 * press, subtract);
   }
   marching.update();
 
-  if (!reduceMotion) sparkles.rotation.y = t * 0.12;
+  // Glitzer: langsame Drehung + Atem-Skalierung
+  if (!reduceMotion) sparkles.rotation.y = t * 0.05;
+  sparkles.scale.setScalar(breathMode ? 0.88 + 0.16 * breathV : 1 + idle * 0.8);
   sparkleMat.uniforms.uTime.value = t;
+
+  // Preset-Ziele weich überblenden
+  const k = 1 - Math.exp(-dt * 3);
+  material.color.lerp(colorTar, k);
+  material.attenuationColor.lerp(attenTar, k);
+  material.transmission += (matTar.transmission - material.transmission) * k;
+  material.iridescence += (matTar.iridescence - material.iridescence) * k;
+  material.iridescenceIOR += (matTar.iridescenceIOR - material.iridescenceIOR) * k;
+  material.thickness += (matTar.thickness - material.thickness) * k;
+  material.roughness += (matTar.roughness - material.roughness) * k;
+  rimLight.color.lerp(rimTar, k);
+  sparkleMat.uniforms.uBase.value.lerp(sparkleBaseTar, k);
+  sparkleMat.uniforms.uRainbow.value += (rainbowTar - sparkleMat.uniforms.uRainbow.value) * k;
+  if (Math.abs(bgInnerCur.r - bgInnerTar.r) + Math.abs(bgInnerCur.g - bgInnerTar.g) +
+      Math.abs(bgInnerCur.b - bgInnerTar.b) + Math.abs(bgOuterCur.r - bgOuterTar.r) +
+      Math.abs(bgOuterCur.g - bgOuterTar.g) + Math.abs(bgOuterCur.b - bgOuterTar.b) > 0.004) {
+    bgInnerCur.lerp(bgInnerTar, k);
+    bgOuterCur.lerp(bgOuterTar, k);
+    drawBackground();
+  }
+
+  // Klang an Druck/Bewegung/Atem koppeln
+  if (audio && soundOn) {
+    const sTar = Math.min(0.6, press * (0.22 + Math.min(ptrSpeed, 1) * 1.2));
+    audio.sg.gain.value += (sTar - audio.sg.gain.value) * Math.min(1, dt * 8);
+    audio.bp.frequency.value = 320 + press * 420 + Math.min(ptrSpeed, 1) * 300;
+    audio.lp.frequency.value = 280 + (breathMode ? breathV * 140 : 20 + idle * 400);
+  }
 
   renderer.render(scene, camera);
   requestAnimationFrame(render);
@@ -404,6 +643,7 @@ window.addEventListener('resize', () => {
   camera.top = VIEW_SIZE / 2;
   camera.bottom = -VIEW_SIZE / 2;
   camera.updateProjectionMatrix();
+  computeAnchorRange();
   renderer.setSize(window.innerWidth, window.innerHeight);
   sparkleMat.uniforms.uPixelRatio.value = renderer.getPixelRatio();
 });

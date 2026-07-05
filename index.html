@@ -145,7 +145,7 @@ const NUM_SPARKLES = 560;   // Glitzerpartikel
 const VIEW_SIZE    = 4.2;   // sichtbare Höhe in Weltkoordinaten
 const FIELD_SCALE  = 1.9;   // Größe des Slime-Felds
 const PRESS_RADIUS = 0.30;  // Radius der Druck-Wirkung im Feldraum
-const SPARKLE_RADIUS = 0.70;// Glitzerwolke (Weltkoordinaten) – bleibt IM Slime
+const SPARKLE_RADIUS = 0.66;// Glitzerwolke (Weltkoordinaten) – bleibt IM Slime
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---- Farb-Presets (girly & candy, bewusst NICHT metallisch:
@@ -176,10 +176,10 @@ const PRESETS = {
     bgInner: '#2ec4b5', bgOuter: '#0a4540', rim: 0x7df5e2,
   },
   regenbogen: {
-    color: 0xf8f2ff, transmission: 0.88, iridescence: 1.0, iridescenceIOR: 1.8,
-    thickness: 1.7, roughness: 0.16, clearcoat: 0.60, attenuation: 0xc7a6ff,
+    color: 0xe3c8ff, transmission: 0.88, iridescence: 1.0, iridescenceIOR: 1.9,
+    thickness: 1.8, roughness: 0.16, clearcoat: 0.60, attenuation: 0xa678f0,
     sparkleHue: 0.0, sparkleSat: 0.0, rainbow: 1.0,
-    bgInner: '#7d68d6', bgOuter: '#1d1342', rim: 0xb3c2ff,
+    bgInner: '#8a5fd6', bgOuter: '#241245', rim: 0xd0a6ff,
   },
 };
 
@@ -247,6 +247,8 @@ const material = new THREE.MeshPhysicalMaterial({
   iridescenceIOR: 1.25, envMapIntensity: 0.5, transparent: true,
   attenuationDistance: 2.4,
 });
+// breiteres Schichtdicken-Spektrum -> mehr Farbbänder beim Regenbogen-Schimmer
+material.iridescenceThicknessRange = [100, 800];
 // Ziel-Werte für weiches Überblenden beim Preset-Wechsel
 const matTar = { transmission: 0.92, iridescence: 0.18, iridescenceIOR: 1.25, thickness: 1.5, roughness: 0.18 };
 const colorTar = new THREE.Color(0xffa2d2);
@@ -269,7 +271,7 @@ for (let i = 0; i < NUM_BLOBS; i++) {
     a0, offR,
     pos: new THREE.Vector2(0.5 + Math.cos(a0) * offR, 0.5 + Math.sin(a0) * offR),
     vel: new THREE.Vector2(0, 0),
-    z: 0.5 + (Math.random() - 0.5) * 0.04,
+    z: 0.5 + (Math.random() - 0.5) * 0.02,
     phase: Math.random() * Math.PI * 2,
     strength: i === 0 ? 1.15 : 0.6,
   });
@@ -295,6 +297,8 @@ computeAnchorRange();
 // ------------------------------------------------------------------
 const sparkleGeo = new THREE.BufferGeometry();
 const spPos = new Float32Array(NUM_SPARKLES * 3);
+const spHome = new Float32Array(NUM_SPARKLES * 3); // Ruhepositionen
+const spVel = new Float32Array(NUM_SPARKLES * 3);  // eigene Mini-Physik
 const spPhase = new Float32Array(NUM_SPARKLES);
 const spSize = new Float32Array(NUM_SPARKLES);
 const spHue = new Float32Array(NUM_SPARKLES);
@@ -303,9 +307,9 @@ for (let i = 0; i < NUM_SPARKLES; i++) {
   const u = Math.random(), v = Math.random(), w = Math.random();
   const theta = 2 * Math.PI * u, phi = Math.acos(2 * v - 1);
   const rad = SPARKLE_RADIUS * Math.cbrt(w);
-  spPos[i*3]   = rad * Math.sin(phi) * Math.cos(theta);
-  spPos[i*3+1] = rad * Math.sin(phi) * Math.sin(theta);
-  spPos[i*3+2] = rad * Math.cos(phi) * 0.75;
+  spHome[i*3]   = spPos[i*3]   = rad * Math.sin(phi) * Math.cos(theta);
+  spHome[i*3+1] = spPos[i*3+1] = rad * Math.sin(phi) * Math.sin(theta);
+  spHome[i*3+2] = spPos[i*3+2] = rad * Math.cos(phi) * 0.75;
   spPhase[i] = Math.random() * Math.PI * 2;
   spSize[i]  = 0.7 + Math.random() * 1.9;
   spHue[i]   = Math.random();
@@ -367,6 +371,10 @@ scene.add(sparkles);
 // ------------------------------------------------------------------
 const pointer = new THREE.Vector2(0.5, 0.5);
 const lastPtr = new THREE.Vector2(0.5, 0.5);
+// Die Delle folgt dem Finger NICHT direkt, sondern kriecht zäh
+// hinterher – sonst pflügt schnelles Ziehen einen Kanal durch den
+// Slime und er sieht "zerrissen" aus.
+const pressPos = new THREE.Vector2(0.5, 0.5);
 let dragging = false;
 let hintGone = false;
 let press = 0;            // aktueller Druck 0..1 (baut sich weich auf/ab)
@@ -391,11 +399,17 @@ app.addEventListener('pointerdown', (e) => {
   dragging = true;
   setPointerFromEvent(e);
   lastPtr.copy(pointer);
+  pressPos.copy(pointer);
   app.setPointerCapture(e.pointerId);
+  if (audio && soundOn) audio.blub(170, 65, 0.3, 0.16);   // Eintauch-"Blub"
   if (!hintGone) { document.getElementById('hint').classList.add('gone'); hintGone = true; }
 });
 app.addEventListener('pointermove', (e) => { if (dragging && e.isPrimary) setPointerFromEvent(e); });
-function endDrag(e) { if (e.isPrimary) dragging = false; }
+function endDrag(e) {
+  if (!e.isPrimary) return;
+  if (dragging && audio && soundOn) audio.blub(120, 55, 0.35, 0.09); // Ablöse-"Blub"
+  dragging = false;
+}
 app.addEventListener('pointerup', endDrag);
 app.addEventListener('pointercancel', endDrag);
 app.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -444,17 +458,32 @@ function ensureAudio() {
   }
   og.connect(lp); lp.connect(padGain); padGain.connect(master);
 
-  // Knet-Rauschen: geloopter Noise-Buffer durch einen Bandpass
+  // Glibber-Schmatzen: Noise durch einen TIEFEN, resonanten Tiefpass
+  // (hohe Frequenzen = Papier-Knistern, tiefe + Resonanz = nass/zäh)
   const len = ctx.sampleRate * 2;
   const buf = ctx.createBuffer(1, len, ctx.sampleRate);
   const d = buf.getChannelData(0);
   for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
   const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.7;
+  const bp = ctx.createBiquadFilter(); bp.type = 'lowpass'; bp.frequency.value = 150; bp.Q.value = 2.4;
   const sg = ctx.createGain(); sg.gain.value = 0;
   src.connect(bp); bp.connect(sg); sg.connect(master); src.start();
 
-  audio = { ctx, master, lp, bp, sg };
+  // kurzer "Blub" (fallende Sinus-Blase) beim Eintauchen/Loslassen
+  function blub(f0, f1, dur, vol) {
+    const now = ctx.currentTime;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(f0, now);
+    o.frequency.exponentialRampToValueAtTime(f1, now + dur);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(vol, now + 0.06);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    o.connect(g); g.connect(master);
+    o.start(now); o.stop(now + dur + 0.05);
+  }
+
+  audio = { ctx, master, lp, bp, sg, blub };
 }
 
 // ------------------------------------------------------------------
@@ -523,8 +552,14 @@ function updatePhysics(dt, t) {
   // Druck weich aufbauen, aber LANGSAM abbauen – die Delle erholt
   // sich träge, wie bei echtem, zähem Slime
   const pTarget = dragging ? Math.min(1, Math.max(0.45, pressureRaw * 1.3)) : 0;
-  const pk = pTarget > press ? 2.4 : 0.7;
+  const pk = pTarget > press ? 2.4 : 0.55;
   press += (pTarget - press) * Math.min(1, dt * pk);
+
+  // Delle kriecht dem Finger zäh hinterher (nie 1:1)
+  if (dragging) pressPos.lerp(pointer, Math.min(1, dt * 2.2));
+
+  // Finger-Bewegung dieses Frames (für "Kleben" des Materials)
+  const pdx = pointer.x - lastPtr.x, pdy = pointer.y - lastPtr.y;
 
   // Fingergeschwindigkeit glätten (für den Knet-Klang)
   if (dragging) {
@@ -554,15 +589,25 @@ function updatePhysics(dt, t) {
     // sehr weiche Feder zur Ruheform: zäh, kriecht langsam zurück
     b.vel.x += (hx - b.pos.x) * 2.2 * dt;
     b.vel.y += (hy - b.pos.y) * 2.2 * dt;
-    // Druck: Material weicht unter dem Finger langsam zur Seite
+    // Druck: Material weicht unter dem Finger langsam zur Seite,
+    // und klebt beim Ziehen leicht am Finger (zäher Teig-Effekt)
     if (press > 0.02) {
-      const dx = b.pos.x - pointer.x, dy = b.pos.y - pointer.y;
+      const dx = b.pos.x - pressPos.x, dy = b.pos.y - pressPos.y;
       const dist = Math.hypot(dx, dy);
       if (dist < PRESS_RADIUS) {
         const f = (1 - dist / PRESS_RADIUS) * press * 0.7 * dt;
         const inv = 1 / Math.max(dist, 0.04);
         b.vel.x += dx * inv * f;
         b.vel.y += dy * inv * f;
+      }
+      if (dragging) {
+        const ddx = b.pos.x - pointer.x, ddy = b.pos.y - pointer.y;
+        const dd = Math.hypot(ddx, ddy);
+        if (dd < PRESS_RADIUS * 1.3) {
+          const stick = (1 - dd / (PRESS_RADIUS * 1.3)) * 0.5;
+          b.vel.x += pdx * stick;
+          b.vel.y += pdy * stick;
+        }
       }
     }
     // hohe Zähigkeit: starke Dämpfung + niedriges Tempolimit
@@ -580,6 +625,54 @@ function updatePhysics(dt, t) {
   const wy = (anchor.y - 0.5) * 2 * FIELD_SCALE;
   sparkles.position.x += (wx - sparkles.position.x) * 0.08;
   sparkles.position.y += (wy - sparkles.position.y) * 0.08;
+}
+
+// Glitzer-Physik: Partikel kreisen ganz langsam, weichen dem Druck
+// aus (wie die Masse selbst) und werden hart im Slime gehalten –
+// kein Ausbrechen mehr aus der Oberfläche.
+function updateSparkles(dt, t) {
+  const posA = sparkleGeo.attributes.position.array;
+  const rot = reduceMotion ? 0 : t * 0.05;
+  const cR = Math.cos(rot), sR = Math.sin(rot);
+  const s = sparkles.scale.x;
+  // Druckpunkt in den lokalen Glitzer-Raum umrechnen
+  const lx = ((pressPos.x - 0.5) * 2 * FIELD_SCALE - sparkles.position.x) / s;
+  const ly = ((pressPos.y - 0.5) * 2 * FIELD_SCALE - sparkles.position.y) / s;
+  const lz = 0.4 / s;
+  const R = 1.0;
+  const maxR = SPARKLE_RADIUS * 1.02;
+  for (let i = 0; i < NUM_SPARKLES; i++) {
+    const j = i * 3;
+    // Ruheposition rotiert langsam um die y-Achse
+    const hx = spHome[j] * cR + spHome[j+2] * sR;
+    const hy = spHome[j+1];
+    const hz = -spHome[j] * sR + spHome[j+2] * cR;
+    let vx = spVel[j]   + (hx - posA[j])   * 1.2 * dt;
+    let vy = spVel[j+1] + (hy - posA[j+1]) * 1.2 * dt;
+    let vz = spVel[j+2] + (hz - posA[j+2]) * 1.2 * dt;
+    if (press > 0.02) {
+      const dx = posA[j] - lx, dy = posA[j+1] - ly, dz = posA[j+2] - lz;
+      const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      if (d < R) {
+        const f = (1 - d / R) * press * 2.2 * dt / Math.max(d, 0.08);
+        vx += dx * f; vy += dy * f; vz += dz * f;
+      }
+    }
+    vx *= 0.88; vy *= 0.88; vz *= 0.88;
+    const vl = Math.sqrt(vx*vx + vy*vy + vz*vz);
+    if (vl > 0.02) { const k = 0.02 / vl; vx *= k; vy *= k; vz *= k; }
+    posA[j]   += vx * dt * 60;
+    posA[j+1] += vy * dt * 60;
+    posA[j+2] += vz * dt * 60;
+    // hart im (ellipsoiden) Inneren halten
+    const rr = Math.sqrt(posA[j]**2 + posA[j+1]**2 + (posA[j+2] / 0.75)**2);
+    if (rr > maxR) {
+      const k = maxR / rr;
+      posA[j] *= k; posA[j+1] *= k; posA[j+2] *= k;
+    }
+    spVel[j] = vx; spVel[j+1] = vy; spVel[j+2] = vz;
+  }
+  sparkleGeo.attributes.position.needsUpdate = true;
 }
 
 // ------------------------------------------------------------------
@@ -604,14 +697,16 @@ function render() {
   for (const b of blobs) {
     marching.addBall(b.pos.x, b.pos.y, b.z, b.strength * sMul, subtract);
   }
-  // Druck-Delle: negative Kugel am Finger drückt die Oberfläche ein
+  // Druck-Delle: negative Kugel drückt die Oberfläche ein – bewusst
+  // weiter vorne (z 0.68) und flacher, damit sie den Slime nie in
+  // zwei Teile schneidet
   if (press > 0.02) {
-    marching.addBall(pointer.x, pointer.y, 0.62, -1.0 * press, subtract);
+    marching.addBall(pressPos.x, pressPos.y, 0.68, -0.8 * press, subtract);
   }
   marching.update();
 
-  // Glitzer: langsame Drehung + Atem-Skalierung
-  if (!reduceMotion) sparkles.rotation.y = t * 0.05;
+  // Glitzer: eigene Mini-Physik + Atem-Skalierung
+  updateSparkles(dt, t);
   sparkles.scale.setScalar(breathMode ? 0.88 + 0.16 * breathV : 1 + idle * 0.8);
   sparkleMat.uniforms.uTime.value = t;
 
@@ -635,11 +730,12 @@ function render() {
     drawBackground();
   }
 
-  // Klang an Druck/Bewegung/Atem koppeln
+  // Klang an Druck/Bewegung/Atem koppeln: tiefes, träges Schmatzen
+  // (langsame Hüllkurve, sonst klingt es nach Knistern)
   if (audio && soundOn) {
-    const sTar = Math.min(0.6, press * (0.22 + Math.min(ptrSpeed, 1) * 1.2));
-    audio.sg.gain.value += (sTar - audio.sg.gain.value) * Math.min(1, dt * 8);
-    audio.bp.frequency.value = 320 + press * 420 + Math.min(ptrSpeed, 1) * 300;
+    const sTar = Math.min(0.5, press * (0.28 + Math.min(ptrSpeed, 1) * 0.9));
+    audio.sg.gain.value += (sTar - audio.sg.gain.value) * Math.min(1, dt * 3);
+    audio.bp.frequency.value = 130 + press * 160 + Math.min(ptrSpeed, 1) * 90;
     audio.lp.frequency.value = 280 + (breathMode ? breathV * 140 : 20 + idle * 400);
   }
 

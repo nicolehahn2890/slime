@@ -66,11 +66,15 @@ und Nicole sie über die Weboberfläche hochladen kann.
    im **0..1-Feldraum** (0.5 = Mitte) + `anchor`/`anchorVel` (die ganze Slime-Masse)
 9. **Glitzer** – BufferGeometry mit Attributen `aPhase/aSize/aHue` + eigener
    Vertex/Fragment-Shader (`sparkleMat`), additives Blending; Wolke liegt IM Slime
+   und hat eine eigene Mini-Physik (`updateSparkles`): Partikel weichen dem Druck
+   aus und werden hart im ellipsoiden Inneren gehalten – kein Ausbrechen
 10. **Pointer-Interaktion** – Pointer Events (nur `isPrimary`), liefert `pointer`
     und `pressureRaw` (echte Force auf iPhone, sonst 0.5)
 11. **Atem-Modus** – `updateBreath(t)`: 4s ein · 2s halten · 6s aus, Text in `#breath`
-12. **Klang (optional)** – `ensureAudio()`: synthetisiertes Pad + Knet-Rauschen
-    (Web Audio, keine Dateien), Master-Gain wird weich ein-/ausgeblendet
+12. **Klang (optional)** – `ensureAudio()`: synthetisiertes Pad + tiefes,
+    resonantes Glibber-Schmatzen (Noise durch Lowpass ~130-380 Hz, Q 2.4;
+    NICHT Bandpass in mittleren Frequenzen = klingt nach Papier!) + „Blub"-
+    Blasen beim Eintauchen/Loslassen. Web Audio, keine Dateien.
 13. **`applyPreset(p)`** – setzt nur ZIELWERTE; das Überblenden passiert im Loop
 14. **Physik** `updatePhysics()` – Anker-Modell, Druckaufbau, Dämpfung, Tempolimit
 15. **Animationsloop** `render()` – Atem → Physik → MarchingCubes (+ Druck-Delle)
@@ -111,11 +115,14 @@ und Glitzer-Rotation ab).
   nur den Anker, nie einzelne Blobs → der Slime kann prinzipbedingt nicht
   mehr auseinanderfliegen. Wer wieder Kräfte direkt auf einzelne Blobs gibt,
   holt das „Explodieren" zurück.
-- **Druck = negative Metaball-Kugel.** `marching.addBall(..., -1.0*press, ...)`
-  am Finger drückt die Oberfläche sichtbar ein (MarchingCubes unterstützt
-  negative Stärken über `Math.sign`). Dazu werden Blobs im `PRESS_RADIUS`
-  sanft zur Seite gedrückt – das ist das Knet-Gefühl. `press` baut sich weich
-  auf/ab; auf iPhones fließt die echte Touch-Force (`e.pressure`) ein.
+- **Druck = negative Metaball-Kugel.** `marching.addBall(..., -0.8*press, ...)`
+  bei z=0.68 (bewusst weit vorne + flach, damit sie den Slime nie in zwei
+  Teile schneidet). Die Delle sitzt an `pressPos`, das dem Finger nur zäh
+  hinterherkriecht (`lerp dt*2.2`) – folgt sie dem Finger 1:1, pflügt
+  schnelles Ziehen einen Kanal durch den Slime („zerrissener" Look).
+  Dazu werden Blobs im `PRESS_RADIUS` zur Seite gedrückt und kleben beim
+  Ziehen leicht am Finger (`stick`-Kraft). `press` baut sich schnell auf,
+  langsam ab; auf iPhones fließt die echte Touch-Force (`e.pressure`) ein.
 - **Tempolimit + Dämpfung.** `vel` wird pro Frame ×0.85 gedämpft UND auf
   max. 0.015 Länge geklemmt. Das Limit ist die zweite Explosions-Sicherung.
   Der Slime ist bewusst ÜBERdämpft (zäh, kriecht langsam zurück, wackelt

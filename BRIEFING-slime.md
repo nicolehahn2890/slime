@@ -54,7 +54,11 @@ und Nicole sie über die Weboberfläche hochladen kann.
 
 1. **KONFIG-Block** – Konstanten ganz oben (siehe §5)
 2. **Presets** – `PRESETS` Objekt mit `rosa` / `pink` / `lila` / `tuerkis` / `regenbogen`
-   (girly & candy: bewusst hohe roughness, wenig clearcoat/envMap = NICHT metallisch)
+   (girly & candy: bewusst hohe roughness, wenig clearcoat/envMap = NICHT metallisch).
+   `regenbogen` hat `hueCycle: 1` → die Gel-Farbe pendelt im Loop durch
+   türkis→blau→lila→pink (Gelb/Orange/Grün ausgelassen: wirken beige/schlammig).
+   ACES-Farbverschiebung beachten: Lila Richtung Magenta übersteuern, sonst
+   sieht es blau aus.
 3. **Renderer / Szene / Kamera** – ACES-Tonemapping, PixelRatio auf max. 2 gedeckelt
 4. **Environment** – RoomEnvironment via PMREM → `scene.environment`
 5. **Hintergrund** – EINE persistente CanvasTexture (`drawBackground()`), deren
@@ -92,8 +96,9 @@ und Nicole sie über die Weboberfläche hochladen kann.
 | `NUM_SPARKLES`    | 560     | Glitzerpartikel                                               |
 | `VIEW_SIZE`       | 4.2     | Sichtbare Höhe in Weltkoordinaten                             |
 | `FIELD_SCALE`     | 1.9     | Physische Größe des Slime-Felds                               |
-| `PRESS_RADIUS`    | 0.30    | Radius, in dem der Fingerdruck Material verdrängt (Feldraum)  |
-| `SPARKLE_RADIUS`  | 0.70    | Radius der Glitzerwolke (Welt) – klein genug, um IM Slime zu bleiben |
+| `PRESS_RADIUS`    | 0.22    | Radius, in dem der Fingerdruck Material verdrängt (Feldraum)  |
+| `MAX_STRETCH`     | 0.11    | HARTE Grenze: max. Blob-Abstand von der Ruheform → Slime kann nicht auseinanderbrechen |
+| `SPARKLE_RADIUS`  | 0.60    | Radius der Glitzerwolke (Welt) – klein genug, um IM Slime zu bleiben |
 | `SLIME_WORLD_R`   | 0.95    | Annahme für den Slime-Radius → begrenzt via `computeAnchorRange()`, wie weit der Slime wandern darf |
 
 `reduceMotion` respektiert `prefers-reduced-motion` (schaltet Ambient-Wabbeln
@@ -123,6 +128,11 @@ und Glitzer-Rotation ab).
   Dazu werden Blobs im `PRESS_RADIUS` zur Seite gedrückt und kleben beim
   Ziehen leicht am Finger (`stick`-Kraft). `press` baut sich schnell auf,
   langsam ab; auf iPhones fließt die echte Touch-Force (`e.pressure`) ein.
+- **`MAX_STRETCH` ist die Anti-Auseinanderbrech-Garantie.** Nach der
+  Integration wird jeder Blob hart auf max. 0.11 Abstand zu seiner
+  Ruheposition geklemmt. Kräfte-Tuning allein reicht NICHT – Druck +
+  schnelles Ziehen konnte Kugeln aus dem Metaball-Verbund lösen (sichtbar
+  „abgerissene" Stücke). Diese Klemme macht das physikalisch unmöglich.
 - **Tempolimit + Dämpfung.** `vel` wird pro Frame ×0.85 gedämpft UND auf
   max. 0.015 Länge geklemmt. Das Limit ist die zweite Explosions-Sicherung.
   Der Slime ist bewusst ÜBERdämpft (zäh, kriecht langsam zurück, wackelt

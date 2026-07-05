@@ -56,8 +56,11 @@ und Nicole sie über die Weboberfläche hochladen kann.
 ## 4. Aufbau der index.html (Reihenfolge im `<script type="module">`)
 
 1. **KONFIG-Block** – Konstanten ganz oben (siehe §5)
-2. **Presets** – `PRESETS` Objekt mit `rosa` / `pink` / `lila` / `tuerkis` / `regenbogen`
-   (girly & candy: bewusst hohe roughness, wenig clearcoat/envMap = NICHT metallisch).
+2. **Presets** – `PRESETS` Objekt mit `rosa` / `pink` / `lila` / `tuerkis` / `regenbogen`.
+   Jedes Preset hat eine `swirl`-Palette: die Metaball-Kugeln bekommen eigene
+   Vertex-Farben (`addBall(..., color)`, `material.vertexColors`), die auf der
+   Oberfläche ineinander verlaufen → marmorierter Slime. `attDist` steuert die
+   Farbtiefe (kleiner = satter).
    `regenbogen` = Perlmutt: fast weißes Gel, iridescence 1.0; `hueCycle: 1`
    lässt NUR das Rim-Licht durchs Spektrum wandern (Prisma-Glanz). Die
    Gel-Farbe selbst wechseln sah nach „einfach anderer Farbe" aus, nicht
@@ -97,12 +100,13 @@ und Nicole sie über die Weboberfläche hochladen kann.
 |-------------------|---------|---------------------------------------------------------------|
 | `RESOLUTION`      | 52      | Detailgrad der Oberfläche. **Bei iPhone-Ruckeln → 44.**       |
 | `NUM_BLOBS`       | 7       | 1 Kern + 6 Ring-Kugeln                                        |
-| `NUM_SPARKLES`    | 560     | Glitzerpartikel                                               |
+| `NUM_SPARKLES`    | 950     | Glitzerpartikel (fein & dicht wie echter Glitzerstaub)        |
 | `VIEW_SIZE`       | 4.2     | Sichtbare Höhe in Weltkoordinaten                             |
 | `FIELD_SCALE`     | 1.9     | Physische Größe des Slime-Felds                               |
 | `PRESS_RADIUS`    | 0.22    | Radius, in dem der Fingerdruck Material verdrängt (Feldraum)  |
 | `MAX_STRETCH`     | 0.11    | HARTE Grenze: max. Blob-Abstand von der Ruheform → Slime kann nicht auseinanderbrechen |
-| `SPARKLE_RADIUS`  | 0.60    | Radius der Glitzerwolke (Welt) – klein genug, um IM Slime zu bleiben |
+| `SPARKLE_RADIUS`  | 0.78    | Radius der Glitzerwolke (Welt) – bleibt in der Slime-Silhouette |
+| `SPARKLE_Z`/`_ZOFF`| 0.45/0.22 | Wolke ist flach gestaucht und sitzt vorne im Gel            |
 | `SLIME_WORLD_R`   | 0.95    | Annahme für den Slime-Radius → begrenzt via `computeAnchorRange()`, wie weit der Slime wandern darf |
 
 `reduceMotion` respektiert `prefers-reduced-motion` (schaltet Ambient-Wabbeln
@@ -119,6 +123,16 @@ und Glitzer-Rotation ab).
   `NDC → Welt (× VIEW_SIZE/aspect) → Feld (÷ 2·FIELD_SCALE + 0.5)`. Wenn du die
   Kamera auf Perspective umstellst, ist dieses Mapping falsch und muss über einen
   Raycaster/`unproject` neu gemacht werden. **Kamera-Wechsel = Mapping-Rewrite.**
+- **Heller Hintergrund ist Pflicht.** Das Gel ist transmissiv – was hinter
+  ihm liegt, bestimmt seine Helligkeit. Dunkle Hintergründe machen den Slime
+  zwangsläufig dunkel/metallisch (Nicoles Hauptkritik über mehrere Runden).
+  Alle Presets haben helle Pastell-Hintergründe; die UI-Texte sind dunkel.
+- **Glitzer wird ÜBER dem Gel gezeichnet** (`depthTest: false`,
+  `renderOrder = 2`): additives Funkeln im Transmission-Buffer ist gegen
+  helle Hintergründe unsichtbar. Die Wolke bleibt immer innerhalb der
+  Slime-Silhouette (Käfig), daher schwebt nichts daneben. Der z-Versatz
+  `SPARKLE_ZOFF` wird NACH der Rotation addiert, sonst wandert die Wolke
+  seitlich.
 - **Anker-Modell statt Einzelanziehung.** Die Blobs hängen an EINEM trägen
   Anker (`anchor`) mit festen, langsam rotierenden Offsets. Der Finger zieht
   nur den Anker, nie einzelne Blobs → der Slime kann prinzipbedingt nicht

@@ -53,7 +53,8 @@ und Nicole sie über die Weboberfläche hochladen kann.
 ## 4. Aufbau der index.html (Reihenfolge im `<script type="module">`)
 
 1. **KONFIG-Block** – Konstanten ganz oben (siehe §5)
-2. **Presets** – `PRESETS` Objekt mit `pink` / `lila` / `holo` / `gold`
+2. **Presets** – `PRESETS` Objekt mit `rosa` / `pink` / `lila` / `tuerkis` / `regenbogen`
+   (girly & candy: bewusst hohe roughness, wenig clearcoat/envMap = NICHT metallisch)
 3. **Renderer / Szene / Kamera** – ACES-Tonemapping, PixelRatio auf max. 2 gedeckelt
 4. **Environment** – RoomEnvironment via PMREM → `scene.environment`
 5. **Hintergrund** – EINE persistente CanvasTexture (`drawBackground()`), deren
@@ -84,7 +85,7 @@ und Nicole sie über die Weboberfläche hochladen kann.
 |-------------------|---------|---------------------------------------------------------------|
 | `RESOLUTION`      | 52      | Detailgrad der Oberfläche. **Bei iPhone-Ruckeln → 44.**       |
 | `NUM_BLOBS`       | 7       | 1 Kern + 6 Ring-Kugeln                                        |
-| `NUM_SPARKLES`    | 240     | Glitzerpartikel                                               |
+| `NUM_SPARKLES`    | 560     | Glitzerpartikel                                               |
 | `VIEW_SIZE`       | 4.2     | Sichtbare Höhe in Weltkoordinaten                             |
 | `FIELD_SCALE`     | 1.9     | Physische Größe des Slime-Felds                               |
 | `PRESS_RADIUS`    | 0.30    | Radius, in dem der Fingerdruck Material verdrängt (Feldraum)  |
@@ -110,13 +111,17 @@ und Glitzer-Rotation ab).
   nur den Anker, nie einzelne Blobs → der Slime kann prinzipbedingt nicht
   mehr auseinanderfliegen. Wer wieder Kräfte direkt auf einzelne Blobs gibt,
   holt das „Explodieren" zurück.
-- **Druck = negative Metaball-Kugel.** `marching.addBall(..., -0.85*press, ...)`
+- **Druck = negative Metaball-Kugel.** `marching.addBall(..., -1.0*press, ...)`
   am Finger drückt die Oberfläche sichtbar ein (MarchingCubes unterstützt
   negative Stärken über `Math.sign`). Dazu werden Blobs im `PRESS_RADIUS`
   sanft zur Seite gedrückt – das ist das Knet-Gefühl. `press` baut sich weich
   auf/ab; auf iPhones fließt die echte Touch-Force (`e.pressure`) ein.
-- **Tempolimit + Dämpfung.** `vel` wird pro Frame ×0.90 gedämpft UND auf
-  max. 0.022 Länge geklemmt. Das Limit ist die zweite Explosions-Sicherung.
+- **Tempolimit + Dämpfung.** `vel` wird pro Frame ×0.85 gedämpft UND auf
+  max. 0.015 Länge geklemmt. Das Limit ist die zweite Explosions-Sicherung.
+  Der Slime ist bewusst ÜBERdämpft (zäh, kriecht langsam zurück, wackelt
+  nicht nach); `press` baut sich schnell auf, aber langsam ab (Delle erholt
+  sich träge). Der Anker bleibt an Ort und Stelle und "lehnt" sich nur
+  max. `ANCHOR_LEAN` (0.03) zum Finger – der Slime wandert nicht mehr.
 - **Blob-Positionen werden geklemmt** (`clamp` auf ~0.14..0.86). Ohne Clamp
   fliegen Blobs aus dem Feld und der Slime verschwindet stückweise. Der Anker
   wird zusätzlich über `computeAnchorRange()` (aspect-abhängig!) begrenzt,
@@ -179,7 +184,7 @@ GitHub: `nicolehahn2890`. Ablauf über die **Weboberfläche** (kein git-CLI):
 - ~~„Nur zuschauen"/Ambient~~ ✅ als Atem-Modus eingebaut (4·2·6-Rhythmus)
 - Zwei-Finger-Geste: Slime auseinanderziehen / teilen
 - Fetterer/gröberer Glitzer als Preset-Option
-- Grundfarbe frei wählbar statt vier feste Presets
+- Grundfarbe frei wählbar statt fünf feste Presets
 - Vibration (Haptics API) beim Kneten auf Android
 - Screenshot-/Teilen-Button
 - Atem-Rhythmus wählbar (Box-Breathing 4·4·4·4, 4-7-8 …)

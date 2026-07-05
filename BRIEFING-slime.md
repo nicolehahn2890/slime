@@ -27,7 +27,10 @@ Atem-Modus, optionaler Klang, 4 Presets, weiche Farbübergänge). Alles liegt au
   (keine Build-Tools, kein npm, kein Bundler)
 - **MarchingCubes** (`three/addons/objects/MarchingCubes.js`) – erzeugt die
   verschmelzende Slime-Oberfläche aus mehreren „Metaball"-Kugeln
-- **RoomEnvironment** + **PMREMGenerator** – prozedurale Studio-Umgebung für
+- **Eigene weiche Pastell-Umgebung** (`makeSoftEnv()`: Canvas-Verlauf +
+  weiche Glanzflecken → PMREM). WICHTIG: NICHT RoomEnvironment verwenden –
+  deren harte Fensterflächen spiegeln sich als weiße Streifen im Gel und
+  erzeugen einen Metall-Look. PMREMGenerator –
   Reflexe/Brechung (kein externes HDR nötig)
 - **MeshPhysicalMaterial** mit `transmission`, `clearcoat`, `iridescence` – der
   realistische Gel-Look
@@ -55,12 +58,13 @@ und Nicole sie über die Weboberfläche hochladen kann.
 1. **KONFIG-Block** – Konstanten ganz oben (siehe §5)
 2. **Presets** – `PRESETS` Objekt mit `rosa` / `pink` / `lila` / `tuerkis` / `regenbogen`
    (girly & candy: bewusst hohe roughness, wenig clearcoat/envMap = NICHT metallisch).
-   `regenbogen` hat `hueCycle: 1` → die Gel-Farbe pendelt im Loop durch
-   türkis→blau→lila→pink (Gelb/Orange/Grün ausgelassen: wirken beige/schlammig).
-   ACES-Farbverschiebung beachten: Lila Richtung Magenta übersteuern, sonst
-   sieht es blau aus.
+   `regenbogen` = Perlmutt: fast weißes Gel, iridescence 1.0; `hueCycle: 1`
+   lässt NUR das Rim-Licht durchs Spektrum wandern (Prisma-Glanz). Die
+   Gel-Farbe selbst wechseln sah nach „einfach anderer Farbe" aus, nicht
+   nach Regenbogen. ACES-Farbverschiebung beachten: Lila Richtung Magenta
+   übersteuern, sonst sieht es blau aus.
 3. **Renderer / Szene / Kamera** – ACES-Tonemapping, PixelRatio auf max. 2 gedeckelt
-4. **Environment** – RoomEnvironment via PMREM → `scene.environment`
+4. **Environment** – `makeSoftEnv()` (weicher Verlauf, keine harten Reflexe) → `scene.environment`
 5. **Hintergrund** – EINE persistente CanvasTexture (`drawBackground()`), deren
    Farben beim Preset-Wechsel im Loop weich überblendet werden
 6. **Licht** – ein `DirectionalLight` (Key) + ein farbiges `PointLight` (Rim)
